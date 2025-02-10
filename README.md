@@ -59,10 +59,10 @@ project-root/
 - Cloud deployment for accessibility
 
 ## Contributors
-Manav Dhamecha
-Jenil Prajapati
-Rudraksh Fanse
-Samanvitha Bolisetty
-Sherya Ashar
+-Manav Dhamecha  
+-Jenil Prajapati  
+-Rudraksh Fanse  
+-Samanvitha Bolisetty  
+-Sherya Ashar  
 
 
