@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manual Mode</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script> <!-- ✅ Added Turf.js for area calculation -->
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; }
+        #map { height: 100vh; }
+        .control-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 1000;
+            color: white;
+        }
+        .control-btn {
+            background: #007bff;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .control-btn:hover { background: #0056b3; }
+        .area-display {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .mode-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+        .mode-btn {
+            padding: 10px;
+            background: #444;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+            color: white;
+        }
+        .mode-btn:hover { background: #666; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="control-panel">
+        <button class="control-btn" id="undo-btn">↩ Undo</button>
+        <button class="control-btn" id="redo-btn">↪ Redo</button>
+        <button class="control-btn" id="clear-btn">✖ Clear</button>
+        <button class="control-btn" id="calculate-btn">Get Area</button>
+        <div class="area-display">
+            Area: <span id="area-value">0.00</span>
+        </div>
+    </div>
+
+    <div class="mode-toggle">
+        <button id="mode-switch" class="mode-btn">&lt;</button>
+        <button id="auto-mode" class="mode-btn hidden">Auto</button>
+        <button id="manual-mode" class="mode-btn hidden">Manual</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    
+    <script>
+        // Initialize map
+        let map = L.map('map').setView([51.505, -0.09], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Drawing setup
+        let drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+        let lastDrawnPolygon = null;
+
+        // Initialize draw control
+        let drawControl = new L.Control.Draw({
+            draw: {
+                polygon: {
+                    allowIntersection: false,
+                    showArea: true,
+                    metric: true,
+                    shapeOptions: {
+                        color: '#3388ff',
+                        fillColor: '#3388ff',
+                        fillOpacity: 0.2
+                    }
+                },
+                polyline: false,
+                rectangle: false,
+                circle: false,
+                marker: false
+            },
+            edit: {
+                featureGroup: drawnItems,
+                edit: false
+            }
+        });
+        map.addControl(drawControl);
+
+        // History management
+        let history = [];
+        let historyIndex = -1;
+
+        // Handle drawing events
+        map.on('draw:created', (e) => {
+            const layer = e.layer;
+            history = history.slice(0, historyIndex + 1);
+            history.push(layer);
+            historyIndex++;
+            drawnItems.addLayer(layer);
+            lastDrawnPolygon = layer;
+            updateUndoRedo();
+        });
+
+        // Undo functionality
+        document.getElementById('undo-btn').addEventListener('click', () => {
+            if (historyIndex >= 0) {
+                drawnItems.removeLayer(history[historyIndex]);
+                historyIndex--;
+                updateUndoRedo();
+                updateLastPolygonReference();
+            }
+        });
+
+        // Redo functionality
+        document.getElementById('redo-btn').addEventListener('click', () => {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                drawnItems.addLayer(history[historyIndex]);
+                updateUndoRedo();
+                updateLastPolygonReference();
+            }
+        });
+
+        // Clear functionality
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            drawnItems.clearLayers();
+            history = [];
+            historyIndex = -1;
+            lastDrawnPolygon = null;
+            updateUndoRedo();
+            document.getElementById('area-value').textContent = '0.00 m²';
+        });
+
+        // Get Area functionality (✅ FIXED!)
+        document.getElementById('calculate-btn').addEventListener('click', () => {
+            if (!lastDrawnPolygon) {
+                alert("Please draw a polygon first.");
+                return;
+            }
+
+            // Convert Leaflet polygon to GeoJSON
+            const geoJson = lastDrawnPolygon.toGeoJSON();
+
+            // Calculate area in square meters using Turf.js
+            const areaSqMeters = turf.area(geoJson).toFixed(2);
+
+            // Display the area in square meters (m²)
+            document.getElementById('area-value').textContent = areaSqMeters + " m²";
+        });
+
+        // Update last polygon reference
+        function updateLastPolygonReference() {
+            lastDrawnPolygon = history[historyIndex] instanceof L.Polygon 
+                ? history[historyIndex] 
+                : null;
+        }
+
+        // Update undo/redo button states
+        function updateUndoRedo() {
+            document.getElementById('undo-btn').disabled = historyIndex < 0;
+            document.getElementById('redo-btn').disabled = historyIndex >= history.length - 1;
+        }
+
+        // Mode switching
+        const modeSwitch = document.getElementById('mode-switch');
+        const autoModeBtn = document.getElementById('auto-mode');
+        const manualModeBtn = document.getElementById('manual-mode');
+        let modesVisible = false;
+
+        modeSwitch.addEventListener('click', () => {
+            modesVisible = !modesVisible;
+            modeSwitch.innerHTML = modesVisible ? '&gt;' : '&lt;';
+            autoModeBtn.classList.toggle('hidden');
+            manualModeBtn.classList.toggle('hidden');
+        });
+
+        autoModeBtn.addEventListener('click', () => {
+            window.location.href = '/';
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+Flask
+opencv-python
+numpy
+shapely
+rtree
+scikit-image
+scipy
+geographiclib

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Auto Mode</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { height: 100vh; display: flex; flex-direction: column; background: #1a1a1a; color: white; }
+        .container { flex: 1; display: flex; gap: 20px; padding: 20px; }
+        .map-container, .result-container { flex: 1; background: #000; border-radius: 10px; overflow: hidden; position: relative; }
+        #map { height: 100%; }
+        #processed-image { width: 100%; height: 100%; object-fit: contain; }
+        .overlay-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+        #controls { padding: 20px; text-align: center; background: #333; }
+        button { padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background 0.3s; }
+        button:hover { background: #0056b3; }
+        .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px; background: rgba(0,0,0,0.8); border-radius: 5px; display: none; z-index: 1000; font-size: 1.2em; }
+        .area-display { margin-top: 10px; font-size: 1.2em; color: #00ff00; }
+        .mode-toggle { position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; gap: 10px; }
+        .mode-btn { padding: 10px; background: #444; border-radius: 5px; cursor: pointer; transition: 0.3s; color: white; }
+        .mode-btn:hover { background: #666; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+        <div class="result-container">
+            <img id="processed-image" src="" alt="Processed Image">
+            <canvas id="highlight-canvas" class="overlay-canvas"></canvas>
+        </div>
+    </div>
+
+    <div id="controls">
+        <button id="capture-btn">Capture Region</button>
+        <button id="reset-btn">Reset Selection</button>
+        <div class="area-display">
+            Total Area: <span id="area-value">0.00</span> m²
+        </div>
+    </div>
+
+    <div class="loading" id="loading">Processing... Please wait</div>
+
+    <div class="mode-toggle">
+        <button id="mode-switch" class="mode-btn">&lt;</button>
+        <button id="auto-mode" class="mode-btn hidden">Auto</button>
+        <button id="manual-mode" class="mode-btn hidden">Manual</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        let map = L.map('map').setView([51.505, -0.09], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        let contours = [], imageSize = { width: 0, height: 0 };
+        const canvas = document.getElementById('highlight-canvas'), ctx = canvas.getContext('2d');
+        let selectedContours = new Set(), totalArea = 0;
+
+        // Capture Button
+        document.getElementById('capture-btn').addEventListener('click', async () => {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+            try {
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                const mapCanvas = await html2canvas(document.getElementById('map'), { useCORS: true });
+                const blob = await new Promise(resolve => mapCanvas.toBlob(resolve, 'image/png'));
+                const formData = new FormData();
+                formData.append('image', blob);
+                formData.append('zoom', map.getZoom());
+                formData.append('lat', map.getCenter().lat);
+                const response = await fetch('/process-image', { method: 'POST', body: formData });
+                if (!response.ok) throw new Error('Server error');
+                const data = await response.json();
+                document.getElementById('processed-image').src = data.processed_image_url + '&t=' + Date.now();
+                imageSize = { width: data.width, height: data.height };
+                contours = data.contours;
+                canvas.width = document.getElementById('processed-image').offsetWidth;
+                canvas.height = document.getElementById('processed-image').offsetHeight;
+                await new Promise(resolve => { document.getElementById('processed-image').onload = resolve; });
+                initClickHandler();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+
+        // Reset Button
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            selectedContours.clear();
+            totalArea = 0;
+            document.getElementById('area-value').textContent = '0.00';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        // Click Handler
+        function initClickHandler() {
+            document.getElementById('processed-image').onclick = async (e) => {
+                const rect = e.target.getBoundingClientRect();
+                const x = Math.round((e.clientX - rect.left) * (imageSize.width / rect.width));
+                const y = Math.round((e.clientY - rect.top) * (imageSize.height / rect.height));
+                try {
+                    const response = await fetch(`/get-area?x=${x}&y=${y}`);
+                    const data = await response.json();
+                    if (data.area !== null && !selectedContours.has(data.contour_index)) {
+                        selectedContours.add(data.contour_index);
+                        totalArea += data.area;
+                        document.getElementById('area-value').textContent = totalArea.toFixed(2);
+                        highlightSelectedContours();
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            };
+        }
+
+        // Highlight Contours
+        function highlightSelectedContours() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#ff0000';
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            ctx.lineWidth = 2;
+            const imgRect = document.getElementById('processed-image').getBoundingClientRect();
+            selectedContours.forEach(index => {
+                const contour = contours[index];
+                ctx.beginPath();
+                contour.forEach((point, i) => {
+                    const x = (point[0] / imageSize.width) * imgRect.width;
+                    const y = (point[1] / imageSize.height) * imgRect.height;
+                    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                });
+                ctx.closePath();
+                ctx.stroke();
+                ctx.fill();
+            });
+        }
+
+        // Mode Switching
+        const modeSwitch = document.getElementById('mode-switch');
+        const autoModeBtn = document.getElementById('auto-mode');
+        const manualModeBtn = document.getElementById('manual-mode');
+        let modesVisible = false;
+        modeSwitch.addEventListener('click', () => {
+            modesVisible = !modesVisible;
+            modeSwitch.innerHTML = modesVisible ? '&gt;' : '&lt;';
+            autoModeBtn.classList.toggle('hidden');
+            manualModeBtn.classList.toggle('hidden');
+        });
+        manualModeBtn.addEventListener('click', () => window.location.href = '/manual');
+    </script>
+</body>
+</html>
