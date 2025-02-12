@@ -12,7 +12,7 @@ from geographiclib.geodesic import Geodesic
 app = Flask(__name__)
 
 # Configuration
-PROCESSED_DIR = r"D:\Coding\VSCODE\AI 0\static\processed_images"
+PROCESSED_DIR = r"D:\Coding\VSCODE\AI 0\static\processed_images" # Add your path
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
 # Global variables
