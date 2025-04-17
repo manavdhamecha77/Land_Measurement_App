@@ -1,68 +1,509 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Auto Mode</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Land Measurement - Auto Mode</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { height: 100vh; display: flex; flex-direction: column; background: #1a1a1a; color: white; }
-        .container { flex: 1; display: flex; gap: 20px; padding: 20px; }
-        .map-container, .result-container { flex: 1; background: #000; border-radius: 10px; overflow: hidden; position: relative; }
-        #map { height: 100%; }
-        #processed-image { width: 100%; height: 100%; object-fit: contain; }
-        .overlay-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
-        #controls { padding: 20px; text-align: center; background: #333; }
-        button { padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background 0.3s; }
-        button:hover { background: #0056b3; }
-        .loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px; background: rgba(0,0,0,0.8); border-radius: 5px; display: none; z-index: 1000; font-size: 1.2em; }
-        .area-display { margin-top: 10px; font-size: 1.2em; color: #00ff00; }
-        .mode-toggle { position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; gap: 10px; }
-        .mode-btn { padding: 10px; background: #444; border-radius: 5px; cursor: pointer; transition: 0.3s; color: white; }
-        .mode-btn:hover { background: #666; }
-        .hidden { display: none; }
+        :root {
+            --primary: #3498db;
+            --primary-dark: #2980b9;
+            --secondary: #2ecc71;
+            --secondary-dark: #27ae60;
+            --danger: #e74c3c;
+            --dark: #2c3e50;
+            --dark-light: #34495e;
+            --light: #ecf0f1;
+            --gray: #95a5a6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+            --transition: all 0.3s ease;
+        }
+        
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            font-family: 'Roboto', sans-serif;
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            background: var(--dark); 
+            color: var(--light);
+        }
+        
+        header {
+            background: var(--dark-light);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+            z-index: 10;
+        }
+        
+        .app-title {
+            font-size: 1.5rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .app-title i {
+            color: var(--primary);
+        }
+        
+        .mode-indicator {
+            background: var(--primary);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .container { 
+            flex: 1; 
+            display: flex; 
+            gap: 20px; 
+            padding: 20px; 
+            overflow: hidden;
+        }
+        
+        .panel {
+            flex: 1; 
+            background: var(--dark-light); 
+            border-radius: var(--radius); 
+            overflow: hidden; 
+            position: relative;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-header {
+            background: rgba(0,0,0,0.2);
+            padding: 10px 15px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .panel-content {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map { 
+            height: 100%; 
+            width: 100%;
+        }
+        
+        #processed-image { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+        }
+        
+        .overlay-canvas { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            pointer-events: none; 
+            width: 100%;
+            height: 100%;
+        }
+        
+        .controls { 
+            padding: 20px; 
+            background: var(--dark-light); 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn { 
+            padding: 12px 20px; 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            border-radius: var(--radius); 
+            cursor: pointer; 
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+        
+        .btn:hover { 
+            background: var(--primary-dark); 
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+        }
+        
+        .area-display { 
+            font-size: 1.2rem; 
+            color: var(--light);
+            background: rgba(0,0,0,0.2);
+            padding: 12px 20px;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .area-value {
+            color: var(--secondary);
+            font-weight: 500;
+        }
+        
+        .loading { 
+            position: fixed; 
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8); 
+            display: none; 
+            z-index: 1000; 
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--gray);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+        
+        .mode-toggle { 
+            position: fixed; 
+            bottom: 20px; 
+            right: 20px; 
+            z-index: 1000; 
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        
+        .mode-btn { 
+            padding: 12px;
+            background: var(--dark-light); 
+            border-radius: var(--radius); 
+            cursor: pointer; 
+            transition: var(--transition);
+            color: white;
+            box-shadow: var(--shadow);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 45px;
+            height: 45px;
+        }
+        
+        .mode-btn:hover { 
+            background: var(--primary); 
+        }
+        
+        .mode-menu {
+            background: var(--dark-light);
+            border-radius: var(--radius);
+            overflow: hidden;
+            width: 120px;
+            box-shadow: var(--shadow);
+            transform-origin: bottom right;
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            transform: scale(0);
+        }
+        
+        .mode-menu.visible {
+            transform: scale(1);
+        }
+        
+        .mode-option {
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .mode-option:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .mode-option.active {
+            background: var(--primary);
+        }
+        
+        .tooltip {
+            position: fixed;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            display: none;
+            z-index: 1100;
+        }
+        
+        .help-btn {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 45px;
+            height: 45px;
+            background: var(--dark-light);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+            z-index: 999;
+        }
+        
+        .help-btn:hover {
+            background: var(--primary);
+        }
+        
+        .help-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        
+        .help-content {
+            background: var(--dark-light);
+            border-radius: var(--radius);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+        
+        .help-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .close-help {
+            background: none;
+            border: none;
+            color: var(--light);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .close-help:hover {
+            color: var(--danger);
+        }
+        
+        .help-section {
+            margin-bottom: 15px;
+        }
+        
+        .help-section h3 {
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .help-section p {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .btn-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
     </style>
 </head>
 <body>
+    <header>
+        <div class="app-title">
+            <i class="fas fa-map-marked-alt"></i>
+            Land Measurement
+        </div>
+        <div class="mode-indicator">
+            <i class="fas fa-robot"></i> Auto Mode
+        </div>
+    </header>
+
     <div class="container">
-        <div class="map-container">
-            <div id="map"></div>
+        <div class="panel">
+            <div class="panel-header">
+                <i class="fas fa-map"></i> Map View
+            </div>
+            <div class="panel-content">
+                <div id="map"></div>
+            </div>
         </div>
-        <div class="result-container">
-            <img id="processed-image" src="" alt="Processed Image">
-            <canvas id="highlight-canvas" class="overlay-canvas"></canvas>
+        <div class="panel">
+            <div class="panel-header">
+                <i class="fas fa-image"></i> Processed View
+            </div>
+            <div class="panel-content">
+                <img id="processed-image" src="" alt="Processed Image">
+                <canvas id="highlight-canvas" class="overlay-canvas"></canvas>
+            </div>
         </div>
     </div>
 
-    <div id="controls">
-        <button id="capture-btn">Capture Region</button>
-        <button id="reset-btn">Reset Selection</button>
+    <div class="controls">
+        <div class="btn-group">
+            <button id="capture-btn" class="btn">
+                <i class="fas fa-camera"></i> Capture Region
+            </button>
+            <button id="reset-btn" class="btn btn-danger">
+                <i class="fas fa-trash-alt"></i> Reset
+            </button>
+        </div>
         <div class="area-display">
-            Total Area: <span id="area-value">0.00</span> m²
+            <i class="fas fa-chart-area"></i>
+            Total Area: <span id="area-value" class="area-value">0.00</span> m²
         </div>
     </div>
 
-    <div class="loading" id="loading">Processing... Please wait</div>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Processing... Please wait</div>
+    </div>
+
+    <button class="help-btn" id="help-btn">
+        <i class="fas fa-question"></i>
+    </button>
 
     <div class="mode-toggle">
-        <button id="mode-switch" class="mode-btn">&lt;</button>
-        <button id="auto-mode" class="mode-btn hidden">Auto</button>
-        <button id="manual-mode" class="mode-btn hidden">Manual</button>
+        <button id="mode-switch" class="mode-btn">
+            <i class="fas fa-exchange-alt"></i>
+        </button>
+        <div class="mode-menu" id="mode-menu">
+            <div class="mode-option active" id="auto-mode">
+                <i class="fas fa-robot"></i> Auto
+            </div>
+            <div class="mode-option" id="manual-mode">
+                <i class="fas fa-pencil-alt"></i> Manual
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <div class="help-modal" id="help-modal">
+        <div class="help-content">
+            <div class="help-header">
+                <h2>How to Use Auto Mode</h2>
+                <button class="close-help" id="close-help">&times;</button>
+            </div>
+            <div class="help-section">
+                <h3>Getting Started</h3>
+                <p>Auto mode automatically detects land parcels from satellite imagery.</p>
+            </div>
+            <div class="help-section">
+                <h3>Step 1: Navigate the Map</h3>
+                <p>Use the map controls to zoom and navigate to your area of interest.</p>
+            </div>
+            <div class="help-section">
+                <h3>Step 2: Capture Region</h3>
+                <p>Click "Capture Region" to process the current map view. The system will automatically detect land parcels.</p>
+            </div>
+            <div class="help-section">
+                <h3>Step 3: Select Parcels</h3>
+                <p>Click on detected parcels in the processed view to select them and calculate their area.</p>
+            </div>
+            <div class="help-section">
+                <h3>Additional Controls</h3>
+                <p>- Use the Reset button to clear your selections</p>
+                <p>- Switch between Auto and Manual modes using the mode toggle button</p>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script>
+        // Initialize map
         let map = L.map('map').setView([51.505, -0.09], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Variables
         let contours = [], imageSize = { width: 0, height: 0 };
         const canvas = document.getElementById('highlight-canvas'), ctx = canvas.getContext('2d');
         let selectedContours = new Set(), totalArea = 0;
-
+        
+        // UI Elements
+        const tooltip = document.getElementById('tooltip');
+        const modeMenu = document.getElementById('mode-menu');
+        const helpModal = document.getElementById('help-modal');
+        
         // Capture Button
         document.getElementById('capture-btn').addEventListener('click', async () => {
             const loading = document.getElementById('loading');
-            loading.style.display = 'block';
+            loading.style.display = 'flex';
             try {
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 const mapCanvas = await html2canvas(document.getElementById('map'), { useCORS: true });
@@ -81,8 +522,9 @@
                 canvas.height = document.getElementById('processed-image').offsetHeight;
                 await new Promise(resolve => { document.getElementById('processed-image').onload = resolve; });
                 initClickHandler();
+                showToast('Parcels detected! Click on them to select.');
             } catch (error) {
-                alert('Error: ' + error.message);
+                showToast('Error: ' + error.message, true);
             } finally {
                 loading.style.display = 'none';
             }
@@ -94,6 +536,7 @@
             totalArea = 0;
             document.getElementById('area-value').textContent = '0.00';
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            showToast('Selection reset');
         });
 
         // Click Handler
@@ -110,9 +553,11 @@
                         totalArea += data.area;
                         document.getElementById('area-value').textContent = totalArea.toFixed(2);
                         highlightSelectedContours();
+                        showToast(`Parcel added! Area: ${data.area.toFixed(2)} m²`);
                     }
                 } catch (error) {
                     console.error('Error:', error);
+                    showToast('Error selecting parcel', true);
                 }
             };
         }
@@ -120,12 +565,14 @@
         // Highlight Contours
         function highlightSelectedContours() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#ff0000';
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#2ecc71';
+            ctx.fillStyle = 'rgba(46, 204, 113, 0.3)';
+            ctx.lineWidth = 3;
             const imgRect = document.getElementById('processed-image').getBoundingClientRect();
             selectedContours.forEach(index => {
                 const contour = contours[index];
+                if (!contour) return;
+                
                 ctx.beginPath();
                 contour.forEach((point, i) => {
                     const x = (point[0] / imageSize.width) * imgRect.width;
@@ -138,18 +585,73 @@
             });
         }
 
+        // Toast Notification
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.style.position = 'fixed';
+            toast.style.bottom = '20px';
+            toast.style.left = '50%';
+            toast.style.transform = 'translateX(-50%)';
+            toast.style.background = isError ? 'rgba(231, 76, 60, 0.9)' : 'rgba(46, 204, 113, 0.9)';
+            toast.style.color = 'white';
+            toast.style.padding = '12px 24px';
+            toast.style.borderRadius = '4px';
+            toast.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+            toast.style.zIndex = '2000';
+            toast.style.transition = 'opacity 0.3s ease';
+            toast.style.fontWeight = '500';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
         // Mode Switching
-        const modeSwitch = document.getElementById('mode-switch');
-        const autoModeBtn = document.getElementById('auto-mode');
-        const manualModeBtn = document.getElementById('manual-mode');
         let modesVisible = false;
-        modeSwitch.addEventListener('click', () => {
+        document.getElementById('mode-switch').addEventListener('click', () => {
             modesVisible = !modesVisible;
-            modeSwitch.innerHTML = modesVisible ? '&gt;' : '&lt;';
-            autoModeBtn.classList.toggle('hidden');
-            manualModeBtn.classList.toggle('hidden');
+            modeMenu.classList.toggle('visible');
         });
-        manualModeBtn.addEventListener('click', () => window.location.href = '/manual');
+
+        document.getElementById('manual-mode').addEventListener('click', () => {
+            window.location.href = '/manual';
+        });
+        
+        // Help Modal
+        document.getElementById('help-btn').addEventListener('click', () => {
+            helpModal.style.display = 'flex';
+        });
+        
+        document.getElementById('close-help').addEventListener('click', () => {
+            helpModal.style.display = 'none';
+        });
+        
+        // Window resize handling
+        window.addEventListener('resize', () => {
+            if (document.getElementById('processed-image').src) {
+                canvas.width = document.getElementById('processed-image').offsetWidth;
+                canvas.height = document.getElementById('processed-image').offsetHeight;
+                highlightSelectedContours();
+            }
+        });
+        
+        // Close modals on outside click
+        window.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                helpModal.style.display = 'none';
+            }
+            
+            if (!e.target.closest('.mode-toggle') && modesVisible) {
+                modesVisible = false;
+                modeMenu.classList.remove('visible');
+            }
+        });
     </script>
 </body>
 </html>

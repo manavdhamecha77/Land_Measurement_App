@@ -1,80 +1,443 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Manual Mode</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Land Measurement - Manual Mode</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script> <!-- ✅ Added Turf.js for area calculation -->
-
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; }
-        #map { height: 100vh; }
+        :root {
+            --primary: #3498db;
+            --primary-dark: #2980b9;
+            --secondary: #2ecc71;
+            --secondary-dark: #27ae60;
+            --danger: #e74c3c;
+            --dark: #2c3e50;
+            --dark-light: #34495e;
+            --light: #ecf0f1;
+            --gray: #95a5a6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+            --transition: all 0.3s ease;
+        }
+        
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            font-family: 'Roboto', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: var(--light);
+            overflow: hidden;
+        }
+        
+        header {
+            background: var(--dark-light);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+        }
+        
+        .app-title {
+            font-size: 1.5rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .app-title i {
+            color: var(--primary);
+        }
+        
+        .mode-indicator {
+            background: var(--secondary);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .map-container { 
+            flex: 1;
+            position: relative;
+        }
+        
+        #map { 
+            height: 100%;
+            width: 100%;
+            z-index: 10;
+        }
+        
         .control-panel {
-            position: fixed;
+            position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(0, 0, 0, 0.8);
+            background: var(--dark-light);
             padding: 15px;
-            border-radius: 10px;
+            border-radius: var(--radius);
             z-index: 1000;
             color: white;
+            box-shadow: var(--shadow);
+            min-width: 240px;
         }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+            color: var(--primary);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
         .control-btn {
-            background: #007bff;
+            background: var(--primary);
             border: none;
             color: white;
             padding: 10px 15px;
-            margin: 5px;
-            border-radius: 5px;
+            border-radius: var(--radius);
             cursor: pointer;
-            transition: background 0.3s;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 100px;
+            justify-content: center;
+            font-weight: 500;
         }
-        .control-btn:hover { background: #0056b3; }
+        
+        .control-btn:hover { 
+            background: var(--primary-dark); 
+        }
+        
+        .control-btn:disabled {
+            background: var(--gray);
+            cursor: not-allowed;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
         .area-display {
-            margin-top: 10px;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 5px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius);
             font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
+        
+        .area-value {
+            color: var(--secondary);
+            font-weight: 500;
+            font-size: 1.2rem;
+        }
+        
         .mode-toggle {
             position: fixed;
             bottom: 20px;
             right: 20px;
             z-index: 1000;
             display: flex;
+            flex-direction: column;
             gap: 10px;
+            align-items: flex-end;
         }
-        .mode-btn {
-            padding: 10px;
-            background: #444;
-            border-radius: 5px;
+        
+        .mode-btn { 
+            padding: 12px;
+            background: var(--dark-light); 
+            border-radius: var(--radius); 
+            cursor: pointer; 
+            transition: var(--transition);
+            color: white;
+            box-shadow: var(--shadow);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 45px;
+            height: 45px;
+        }
+        
+        .mode-btn:hover { 
+            background: var(--primary); 
+        }
+        
+        .mode-menu {
+            background: var(--dark-light);
+            border-radius: var(--radius);
+            overflow: hidden;
+            width: 120px;
+            box-shadow: var(--shadow);
+            transform-origin: bottom right;
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            transform: scale(0);
+        }
+        
+        .mode-menu.visible {
+            transform: scale(1);
+        }
+        
+        .mode-option {
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
             cursor: pointer;
-            transition: 0.3s;
+            transition: var(--transition);
+        }
+        
+        .mode-option:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .mode-option.active {
+            background: var(--secondary);
+        }
+        
+        .help-btn {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 45px;
+            height: 45px;
+            background: var(--dark-light);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+            z-index: 999;
+        }
+        
+        .help-btn:hover {
+            background: var(--primary);
+        }
+        
+        .help-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        
+        .help-content {
+            background: var(--dark-light);
+            border-radius: var(--radius);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+        
+        .help-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .close-help {
+            background: none;
+            border: none;
+            color: var(--light);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .close-help:hover {
+            color: var(--danger);
+        }
+        
+        .help-section {
+            margin-bottom: 15px;
+        }
+        
+        .help-section h3 {
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .help-section p {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(46, 204, 113, 0.9);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 2000;
+            transition: opacity 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .leaflet-draw-toolbar a {
+            background-color: var(--dark-light);
             color: white;
         }
-        .mode-btn:hover { background: #666; }
-        .hidden { display: none; }
+        
+        .leaflet-draw-toolbar a:hover {
+            background-color: var(--primary);
+        }
+        
+        .leaflet-draw-actions a {
+            background-color: var(--dark-light);
+            color: white;
+        }
+        
+        .leaflet-draw-actions a:hover {
+            background-color: var(--primary);
+        }
     </style>
 </head>
 <body>
-    <div id="map"></div>
+    <header>
+        <div class="app-title">
+            <i class="fas fa-map-marked-alt"></i>
+            Land Measurement
+        </div>
+        <div class="mode-indicator">
+            <i class="fas fa-pencil-alt"></i> Manual Mode
+        </div>
+    </header>
     
-    <div class="control-panel">
-        <button class="control-btn" id="undo-btn">↩ Undo</button>
-        <button class="control-btn" id="redo-btn">↪ Redo</button>
-        <button class="control-btn" id="clear-btn">✖ Clear</button>
-        <button class="control-btn" id="calculate-btn">Get Area</button>
-        <div class="area-display">
-            Area: <span id="area-value">0.00</span>
+    <div class="map-container">
+        <div id="map"></div>
+        
+        <div class="control-panel">
+            <div class="control-group">
+                <div class="control-group-title">
+                    <i class="fas fa-history"></i> History
+                </div>
+                <div class="btn-group">
+                    <button class="control-btn" id="undo-btn" disabled>
+                        <i class="fas fa-undo"></i> Undo
+                    </button>
+                    <button class="control-btn" id="redo-btn" disabled>
+                        <i class="fas fa-redo"></i> Redo
+                    </button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <div class="control-group-title">
+                    <i class="fas fa-tools"></i> Actions
+                </div>
+                <div class="btn-group">
+                    <button class="control-btn btn-danger" id="clear-btn">
+                        <i class="fas fa-trash-alt"></i> Clear
+                    </button>
+                    <button class="control-btn" id="calculate-btn">
+                        <i class="fas fa-calculator"></i> Get Area
+                    </button>
+                </div>
+            </div>
+            
+            <div class="area-display">
+                <i class="fas fa-chart-area"></i>
+                Area: <span id="area-value" class="area-value">0.00 m²</span>
+            </div>
         </div>
     </div>
 
+    <button class="help-btn" id="help-btn">
+        <i class="fas fa-question"></i>
+    </button>
+
     <div class="mode-toggle">
-        <button id="mode-switch" class="mode-btn">&lt;</button>
-        <button id="auto-mode" class="mode-btn hidden">Auto</button>
-        <button id="manual-mode" class="mode-btn hidden">Manual</button>
+        <button id="mode-switch" class="mode-btn">
+            <i class="fas fa-exchange-alt"></i>
+        </button>
+        <div class="mode-menu" id="mode-menu">
+            <div class="mode-option" id="auto-mode">
+                <i class="fas fa-robot"></i> Auto
+            </div>
+            <div class="mode-option active" id="manual-mode">
+                <i class="fas fa-pencil-alt"></i> Manual
+            </div>
+        </div>
+    </div>
+
+    <div class="help-modal" id="help-modal">
+        <div class="help-content">
+            <div class="help-header">
+                <h2>How to Use Manual Mode</h2>
+                <button class="close-help" id="close-help">&times;</button>
+            </div>
+            <div class="help-section">
+                <h3>Getting Started</h3>
+                <p>Manual mode allows you to draw your own land parcel boundaries on the map.</p>
+            </div>
+            <div class="help-section">
+                <h3>Step 1: Navigate the Map</h3>
+                <p>Use the map controls to zoom and navigate to your area of interest.</p>
+            </div>
+            <div class="help-section">
+                <h3>Step 2: Draw Your Parcels</h3>
+                <p>Click the polygon tool in the top left of the map, then click points on the map to create your boundary. Double-click to complete the polygon.</p>
+            </div>
+            <div class="help-section">
+                <h3>Step 3: Calculate Area</h3>
+                <p>Click the "Get Area" button to calculate the area of your most recently drawn polygon.</p>
+            </div>
+            <div class="help-section">
+                <h3>Additional Controls</h3>
+                <p>- Use Undo/Redo buttons to navigate through your drawing history</p>
+                <p>- Clear button removes all polygons from the map</p>
+                <p>- Switch between Auto and Manual modes using the mode toggle button</p>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -84,7 +447,7 @@
         // Initialize map
         let map = L.map('map').setView([51.505, -0.09], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
         // Drawing setup
@@ -100,9 +463,10 @@
                     showArea: true,
                     metric: true,
                     shapeOptions: {
-                        color: '#3388ff',
-                        fillColor: '#3388ff',
-                        fillOpacity: 0.2
+                        color: '#3498db',
+                        fillColor: '#3498db',
+                        fillOpacity: 0.2,
+                        weight: 3
                     }
                 },
                 polyline: false,
@@ -112,7 +476,8 @@
             },
             edit: {
                 featureGroup: drawnItems,
-                edit: false
+                edit: true,
+                remove: true
             }
         });
         map.addControl(drawControl);
@@ -120,6 +485,12 @@
         // History management
         let history = [];
         let historyIndex = -1;
+
+        // UI Elements
+        const undoBtn = document.getElementById('undo-btn');
+        const redoBtn = document.getElementById('redo-btn');
+        const modeMenu = document.getElementById('mode-menu');
+        const helpModal = document.getElementById('help-modal');
 
         // Handle drawing events
         map.on('draw:created', (e) => {
@@ -130,6 +501,28 @@
             drawnItems.addLayer(layer);
             lastDrawnPolygon = layer;
             updateUndoRedo();
+            showToast('Polygon created! Click "Get Area" to calculate.');
+        });
+        
+        // Handle editing events
+        map.on('draw:edited', (e) => {
+            const layers = e.layers;
+            layers.eachLayer(function (layer) {
+                if (layer === lastDrawnPolygon) {
+                    showToast('Polygon edited! Click "Get Area" to recalculate.');
+                }
+            });
+        });
+        
+        map.on('draw:deleted', (e) => {
+            const layers = e.layers;
+            layers.eachLayer(function (layer) {
+                if (layer === lastDrawnPolygon) {
+                    lastDrawnPolygon = null;
+                    document.getElementById('area-value').textContent = '0.00 m²';
+                    showToast('Polygon deleted!');
+                }
+            });
         });
 
         // Undo functionality
@@ -139,6 +532,7 @@
                 historyIndex--;
                 updateUndoRedo();
                 updateLastPolygonReference();
+                showToast('Undo successful');
             }
         });
 
@@ -149,6 +543,7 @@
                 drawnItems.addLayer(history[historyIndex]);
                 updateUndoRedo();
                 updateLastPolygonReference();
+                showToast('Redo successful');
             }
         });
 
@@ -160,12 +555,13 @@
             lastDrawnPolygon = null;
             updateUndoRedo();
             document.getElementById('area-value').textContent = '0.00 m²';
+            showToast('All polygons cleared');
         });
 
-        // Get Area functionality (✅ FIXED!)
+        // Get Area functionality
         document.getElementById('calculate-btn').addEventListener('click', () => {
             if (!lastDrawnPolygon) {
-                alert("Please draw a polygon first.");
+                showToast('Please draw a polygon first', true);
                 return;
             }
 
@@ -177,6 +573,7 @@
 
             // Display the area in square meters (m²)
             document.getElementById('area-value').textContent = areaSqMeters + " m²";
+            showToast(`Area calculated: ${areaSqMeters} m²`);
         });
 
         // Update last polygon reference
@@ -188,26 +585,62 @@
 
         // Update undo/redo button states
         function updateUndoRedo() {
-            document.getElementById('undo-btn').disabled = historyIndex < 0;
-            document.getElementById('redo-btn').disabled = historyIndex >= history.length - 1;
+            undoBtn.disabled = historyIndex < 0;
+            redoBtn.disabled = historyIndex >= history.length - 1;
+        }
+
+        // Show toast notification
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.style.background = isError ? 'rgba(231, 76, 60, 0.9)' : 'rgba(46, 204, 113, 0.9)';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
         }
 
         // Mode switching
-        const modeSwitch = document.getElementById('mode-switch');
-        const autoModeBtn = document.getElementById('auto-mode');
-        const manualModeBtn = document.getElementById('manual-mode');
         let modesVisible = false;
-
-        modeSwitch.addEventListener('click', () => {
+        document.getElementById('mode-switch').addEventListener('click', () => {
             modesVisible = !modesVisible;
-            modeSwitch.innerHTML = modesVisible ? '&gt;' : '&lt;';
-            autoModeBtn.classList.toggle('hidden');
-            manualModeBtn.classList.toggle('hidden');
+            modeMenu.classList.toggle('visible');
         });
 
-        autoModeBtn.addEventListener('click', () => {
+        document.getElementById('auto-mode').addEventListener('click', () => {
             window.location.href = '/';
         });
+        
+        // Help modal
+        document.getElementById('help-btn').addEventListener('click', () => {
+            helpModal.style.display = 'flex';
+        });
+        
+        document.getElementById('close-help').addEventListener('click', () => {
+            helpModal.style.display = 'none';
+        });
+        
+        // Close modals on outside click
+        window.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                helpModal.style.display = 'none';
+            }
+            
+            if (!e.target.closest('.mode-toggle') && modesVisible) {
+                modesVisible = false;
+                modeMenu.classList.remove('visible');
+            }
+        });
+        
+        // Show initial help tip
+        setTimeout(() => {
+            showToast('Draw a polygon using the tools in the top left corner');
+        }, 1000);
     </script>
 </body>
 </html>
