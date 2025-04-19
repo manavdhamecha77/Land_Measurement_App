@@ -22,6 +22,7 @@ pip install -r requirements.txt
 ```
 
 ## Usage
+0. Change the path of BASEDIR in app.py to path of your project's static folder.
 1. Run the Flask application:
    ```bash
    python app.py
