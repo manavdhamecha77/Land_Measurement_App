@@ -58,11 +58,3 @@ project-root/
 - Satellite live imagery for more accurate results 
 - Cloud deployment for accessibility
 
-## Contributors
--Manav Dhamecha  
--Jenil Prajapati  
--Rudraksh Fanse  
--Samanvitha Bolisetty  
--Sherya Ashar  
-
-
