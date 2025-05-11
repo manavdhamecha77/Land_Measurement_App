@@ -1,4 +1,4 @@
-# AI-Powered Land Area Measurement App
+# GeoMeasurePro - AI Powered Land Area Measurement App
 
 ## Overview
 This project is an AI-powered land area measurement application that allows users to select a region on an interactive map and automatically detect boundaries to calculate the area. It uses OpenStreetMap (OSM) for map visualization and integrates OpenCV, GeoPandas, and Flask for backend processing.
