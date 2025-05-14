@@ -42,8 +42,6 @@ pip install -r requirements.txt
 ## Folder Structure
 ```
 project-root/
-|── models/
-|   |── frozen_east_text_detection.pb
 │── app.py                # Flask backend
 │── static/               # For processed images
 │   ├── processed_images
